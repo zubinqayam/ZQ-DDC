@@ -31,7 +31,7 @@ jobs:
         run: |
           if [[ ! -d "${{ github.workspace }}/${{ inputs.package_path }}" ]]; then
             echo "Error: Package directory not found at ${{ github.workspace }}/${{ inputs.package_path }}"
-            echo "Please ensure the ZQTaskmaster package is available in the repository"
+            echo "Please ensure the package files are available at: ${{ inputs.package_path }}"
             exit 1
           fi
           echo "Package directory validated: ${{ inputs.package_path }}"
@@ -96,7 +96,7 @@ jobs:
             git add .
             
             # Commit changes
-            git commit -m "chore(zqtaskmaster): bootstrap CI governance (Confirm→Confirm2, cost/risk gate, CodeQL, Gitleaks, SBOM)" || {
+            git commit -m "chore(zqtaskmaster): bootstrap CI governance with confirmation gates and security scanning" || {
               echo "No changes to commit for $OWNER/$REPO"
               popd >/dev/null
               rm -rf "$WORKDIR"
@@ -134,7 +134,7 @@ jobs:
             echo "✓ Completed processing $OWNER/$REPO"
           done
           
-          echo ">>> Rollout complete. Review PRs, add labels Confirm & Confirm2 on the Approval issue when paused, then merge."
+          echo ">>> Rollout complete. Review PRs, add labels Confirm & Confirm2 on the approval PRs when paused, then merge."
       
       - name: Summary
         if: always()
