@@ -1,0 +1,9 @@
+# Example repository list file for ZQTaskmaster bootstrap
+# One repository name per line (without owner/)
+# Lines starting with # are ignored
+# Blank lines are ignored
+
+# Example repositories:
+# my-app
+# my-service
+# another-repo

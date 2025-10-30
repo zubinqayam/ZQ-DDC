@@ -1,0 +1,146 @@
+name: ZQTaskmaster Bootstrap CI Governance
+
+on:
+  workflow_dispatch:
+    inputs:
+      owner:
+        description: 'Repository owner/organization'
+        required: true
+        default: 'zubinqayam'
+      repo_list:
+        description: 'Comma-separated list of repository names (without owner/)'
+        required: true
+      package_path:
+        description: 'Path to ZQTaskmaster package directory (relative to workspace)'
+        required: true
+        default: 'ZQTaskmaster-Package'
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+      
+      - name: Validate package directory
+        run: |
+          if [[ ! -d "${{ github.workspace }}/${{ inputs.package_path }}" ]]; then
+            echo "Error: Package directory not found at ${{ github.workspace }}/${{ inputs.package_path }}"
+            echo "Please ensure the package files are available at: ${{ inputs.package_path }}"
+            exit 1
+          fi
+          echo "Package directory validated: ${{ inputs.package_path }}"
+      
+      - name: Setup Git
+        run: |
+          git config --global user.name "ZQTaskmaster Bot"
+          git config --global user.email "zqtaskmaster-bot@users.noreply.github.com"
+      
+      - name: Install GitHub CLI
+        run: |
+          type -p gh >/dev/null 2>&1 || {
+            echo "Installing GitHub CLI..."
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update
+            sudo apt install gh -y
+          }
+          gh --version
+      
+      - name: Bootstrap repositories
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ inputs.owner }}
+          PACKAGE_DIR: ${{ github.workspace }}/${{ inputs.package_path }}
+        run: |
+          set -euo pipefail
+          
+          # Create branch name with current date
+          BRANCH="zqtaskmaster/bootstrap-$(date +%Y%m%d)"
+          echo "Using branch: $BRANCH"
+          
+          # Convert comma-separated list to array
+          IFS=',' read -ra REPOS <<< "${{ inputs.repo_list }}"
+          
+          for REPO in "${REPOS[@]}"; do
+            # Trim whitespace
+            REPO=$(echo "$REPO" | xargs)
+            [[ -z "$REPO" ]] && continue
+            
+            echo ">>> Processing $OWNER/$REPO"
+            
+            # Create temporary directory for cloning
+            WORKDIR=$(mktemp -d)
+            
+            # Clone the repository
+            if ! gh repo clone "$OWNER/$REPO" "$WORKDIR"; then
+              echo "Failed to clone $OWNER/$REPO, skipping..."
+              rm -rf "$WORKDIR"
+              continue
+            fi
+            
+            pushd "$WORKDIR" >/dev/null
+            
+            # Create and checkout new branch
+            git checkout -b "$BRANCH"
+            
+            # Copy ZQTaskmaster package files
+            rsync -a --delete "$PACKAGE_DIR"/ ./
+            
+            # Stage all changes
+            git add .
+            
+            # Commit changes
+            git commit -m "chore(zqtaskmaster): bootstrap CI governance with confirmation gates and security scanning" || {
+              echo "No changes to commit for $OWNER/$REPO"
+              popd >/dev/null
+              rm -rf "$WORKDIR"
+              continue
+            }
+            
+            # Push branch
+            git push -u origin "$BRANCH"
+            
+            # Create pull request
+            PR_BODY="Adds orchestrator workflow, labels bootstrap, Dependabot, CODEOWNERS, security policy, SBOM, and gate logic.
+
+            **Next:**
+            1) Run 'ZQ Labels Bootstrap' workflow (Actions tab) to create labels.
+            2) Optionally add SMTP secrets to enable 3 reminder emails.
+            3) Trigger 'ZQTaskmaster Orchestrator' manual run."
+            
+            gh pr create \
+              --title "ZQTaskmaster: bootstrap CI governance (Confirm→Confirm2 gate)" \
+              --body "$PR_BODY" \
+              --label approval \
+              --assignee "@me" || echo "PR creation failed or PR already exists for $OWNER/$REPO"
+            
+            # Try to dispatch the labels workflow
+            WF_ID=".github/workflows/zq-labels.yml"
+            if gh api -X POST "repos/$OWNER/$REPO/actions/workflows/$(basename "$WF_ID")/dispatches" -f ref="$BRANCH" >/dev/null 2>&1; then
+              echo "Dispatched labels workflow on $OWNER/$REPO"
+            else
+              echo "Manual run of 'ZQ Labels Bootstrap' required for $OWNER/$REPO"
+            fi
+            
+            popd >/dev/null
+            rm -rf "$WORKDIR"
+            
+            echo "✓ Completed processing $OWNER/$REPO"
+          done
+          
+          echo ">>> Rollout complete. Review PRs, add labels Confirm & Confirm2 on the approval PRs when paused, then merge."
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Bootstrap Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Owner: ${{ inputs.owner }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Repositories: ${{ inputs.repo_list }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Package: ${{ inputs.package_path }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: zqtaskmaster/bootstrap-$(date +%Y%m%d)" >> $GITHUB_STEP_SUMMARY
