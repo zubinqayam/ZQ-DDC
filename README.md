@@ -8,11 +8,31 @@ Details about ALGA Junction Tracker system...
 
 ## Components
 ### ZQTaskmaster
-Information about ZQTaskmaster...
+The ZQTaskmaster component provides CI governance automation and rollout tooling.
+
+**Deployment Script Requirements:**
+The `scripts/rollout-zqtaskmaster.sh` script requires:
+- GitHub CLI (`gh`) - for repository operations and PR creation
+- `rsync` - for file synchronization
+- Bash shell - available on most Unix-like systems
+
+No Python dependencies are required for ZQTaskmaster deployment.
 ### DDC Core v2.1
 Information about DDC Core v2.1...
 ### ML Demo
-Information about ML Demo...
+The ML Demo component provides a Streamlit-based machine learning demonstration.
+
+**Dependencies:**
+Install the required Python packages using:
+```bash
+pip install -r requirements.txt
+```
+
+The `requirements.txt` includes:
+- streamlit - Web framework for ML demos
+- numpy - Numerical computing
+- scikit-learn - Machine learning library
+- pandas - Data manipulation and analysis
 
 ## Repository Structure
 Details about the repository structure...
