@@ -48,3 +48,7 @@ Guidelines to get started...
 
 ## ZQ AI LOGIC Branding
 Details on branding guidelines...
+
+## Workspace Index
+
+A map of the project folders in the maintainer's home-directory workspace (ZQ_DRR, ZQ_Taskbox, innm_hub and others) is in [docs/WORKSPACE_INDEX.md](docs/WORKSPACE_INDEX.md).
